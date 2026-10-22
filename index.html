@@ -13,10 +13,12 @@
   </header>
 
   <main>
+    <!-- Secção câmara -->
     <section class="card">
       <h2>1. Fotografar Cartão de Visita</h2>
       <div class="camera-area">
-        <video id="video" autoplay playsinline></video>
+        <!-- O atributo muted ajuda o Safari a permitir autoplay -->
+        <video id="video" autoplay playsinline muted></video>
         <canvas id="canvas" style="display:none;"></canvas>
         <img id="preview" alt="Pré-visualização" />
       </div>
@@ -28,6 +30,7 @@
       <p id="ocrStatus" class="status"></p>
     </section>
 
+    <!-- Formulário -->
     <section class="card">
       <h2>2. Dados do Contacto</h2>
       <form id="contactForm">
@@ -43,6 +46,7 @@
       </form>
     </section>
 
+    <!-- Pesquisa e lista -->
     <section class="card">
       <h2>3. Contactos Guardados</h2>
       <input id="searchInput" type="search" placeholder="🔍 Pesquisar por nome ou empresa..." class="search" />
