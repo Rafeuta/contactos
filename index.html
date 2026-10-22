@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestão Inteligente de Contactos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>📇 Gestão de Contactos</h1>
+    <p class="subtitle">Registe, fotografe e pesquise os seus contactos</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. Fotografar Cartão de Visita</h2>
+      <div class="camera-area">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <img id="preview" alt="Pré-visualização" />
+      </div>
+      <div class="buttons">
+        <button id="startCamera" class="btn primary">📷 Ativar Câmara</button>
+        <button id="captureBtn" class="btn success" style="display:none;">📸 Tirar Fotografia</button>
+        <button id="stopCamera" class="btn secondary" style="display:none;">⏹ Parar Câmara</button>
+      </div>
+      <p id="ocrStatus" class="status"></p>
+    </section>
+
+    <section class="card">
+      <h2>2. Dados do Contacto</h2>
+      <form id="contactForm">
+        <input type="hidden" name="id" />
+        <label>Nome *<input name="name" required placeholder="Nome completo" /></label>
+        <label>Empresa<input name="company" placeholder="Empresa" /></label>
+        <label>Telefone<input name="phone" type="tel" placeholder="+351 ..." /></label>
+        <label>Email<input name="email" type="email" placeholder="nome@empresa.pt" /></label>
+        <div class="buttons">
+          <button type="submit" class="btn success">💾 Guardar Contacto</button>
+          <button type="button" id="clearForm" class="btn secondary">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>3. Contactos Guardados</h2>
+      <input id="searchInput" type="search" placeholder="🔍 Pesquisar por nome ou empresa..." class="search" />
+      <ul id="contactList" class="contact-list"></ul>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
