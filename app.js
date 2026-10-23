@@ -63,7 +63,6 @@ captureBtn.addEventListener('click', async () => {
     return;
   }
 
-  // Desenha a foto no canvas
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
@@ -72,7 +71,6 @@ captureBtn.addEventListener('click', async () => {
   preview.src = dataUrl;
   preview.style.display = 'block';
 
-  // Desliga a câmara
   if (stream) {
     stream.getTracks().forEach(t => t.stop());
     stream = null;
@@ -83,41 +81,31 @@ captureBtn.addEventListener('click', async () => {
   captureBtn.style.display = 'none';
   stopBtn.style.display = 'none';
 
-  ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo... (pode demorar uns segundos)';
+  ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo...';
 
   try {
-    // Inicia o Tesseract
-    const worker = await Tesseract.createWorker('por+eng'); 
-    
-    // Processa a imagem
+    const worker = await Tesseract.createWorker('por+eng');
     const { data: { text } } = await worker.recognize(dataUrl);
-    await worker.terminate(); 
+    await worker.terminate();
 
-    console.log("Texto reconhecido:", text); 
+    // ALERTA PARA VERMOS O QUE O LEITOR VIU
+    alert("O Tesseract leu este texto:\n\n" + text);
 
-    // Limpar o texto lido (remove quebras de linha e espaços estranhos)
     const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    // Expressões regulares melhoradas para encontrar Email e Telefone
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
-    // Aceita números com +, espaços e hífens (ex: +351 967 605 414)
     const phoneRegex = /(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{3,4}/g;
     
     const foundEmail = cleanText.match(emailRegex)?.[0] || '';
     const foundPhone = cleanText.match(phoneRegex)?.[0] || '';
 
-    // Preenche o formulário
     form.phone.value = foundPhone.trim();
     form.email.value = foundEmail.trim();
-    
-    // O Nome e a Empresa ficam em branco para o utilizador preencher
-    form.name.value = '';
-    form.company.value = '';
 
     if (foundEmail || foundPhone) {
-      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados e preenche o nome/empresa.';
+      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados.';
     } else {
-      ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou email/telefone. Preenche manualmente.';
+      ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou o formato de email/telefone. Preenche manualmente.';
     }
 
   } catch (err) {
@@ -249,5 +237,4 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// Inicia a lista ao carregar a página
 loadContacts();
