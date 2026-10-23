@@ -37,7 +37,6 @@ main {
   border-radius: 10px;
   background: #000;
   align-self: center;
-  /* Correção para o ecrã preto no Safari (Mac/iOS) */
   transform: translate3d(0, 0, 0);
 }
 
