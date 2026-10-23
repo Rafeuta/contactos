@@ -15,13 +15,12 @@ const preview = document.getElementById('preview');
 const startBtn = document.getElementById('startCamera');
 const captureBtn = document.getElementById('captureBtn');
 const stopBtn = document.getElementById('stopCamera');
+const uploadInput = document.getElementById('uploadInput');
 const ocrStatus = document.getElementById('ocrStatus');
 const form = document.getElementById('contactForm');
 const clearFormBtn = document.getElementById('clearForm');
 const searchInput = document.getElementById('searchInput');
 const contactList = document.getElementById('contactList');
-
-// Elementos novos para o texto em bruto
 const rawTextContainer = document.getElementById('rawTextContainer');
 const rawTextOutput = document.getElementById('rawTextOutput');
 
@@ -37,13 +36,13 @@ startBtn.addEventListener('click', async () => {
       audio: false
     });
     video.srcObject = stream;
-    video.style.display = 'block';
+    video.classList.add('active');
     startBtn.style.display = 'none';
     captureBtn.style.display = 'inline-block';
     stopBtn.style.display = 'inline-block';
     ocrStatus.textContent = '';
+    preview.classList.remove('active');
     rawTextContainer.style.display = 'none';
-    rawTextOutput.value = '';
   } catch (err) {
     alert('Não foi possível ativar a câmara: ' + err.message + '\n\nCertifica-te que estás em HTTPS.');
   }
@@ -54,50 +53,24 @@ stopBtn.addEventListener('click', () => {
     stream.getTracks().forEach(t => t.stop());
     stream = null;
   }
-  video.style.display = 'none';
+  video.classList.remove('active');
   startBtn.style.display = 'inline-block';
   captureBtn.style.display = 'none';
   stopBtn.style.display = 'none';
 });
 
 // ============================================================
-// TIRAR FOTOGRAFIA E USAR TESSERACT.JS (OCR LOCAL)
+// PROCESSAMENTO DA IMAGEM (Câmara ou Upload)
 // ============================================================
-captureBtn.addEventListener('click', async () => {
-  if (!video.videoWidth) {
-    alert('A câmara ainda não está pronta.');
-    return;
-  }
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  
-  ctx.drawImage(video, 0, 0);
-
-  // Cortar a imagem para o Tesseract se focar no centro
-  const cropCanvas = document.createElement('canvas');
-  cropCanvas.width = canvas.width * 0.8; 
-  cropCanvas.height = canvas.height * 0.8; 
-  const cropCtx = cropCanvas.getContext('2d');
-  
-  cropCtx.drawImage(
-    canvas, 
-    canvas.width * 0.1, canvas.height * 0.1, 
-    cropCanvas.width, cropCanvas.height,      
-    0, 0,                                     
-    cropCanvas.width, cropCanvas.height       
-  );
-
-  const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.95); 
+async function processImage(dataUrl) {
   preview.src = dataUrl;
-  preview.style.display = 'block';
-
+  preview.classList.add('active');
+  video.classList.remove('active');
+  
   if (stream) {
     stream.getTracks().forEach(t => t.stop());
     stream = null;
   }
-  video.style.display = 'none';
   startBtn.style.display = 'inline-block';
   startBtn.textContent = '📷 Reativar Câmara';
   captureBtn.style.display = 'none';
@@ -108,48 +81,83 @@ captureBtn.addEventListener('click', async () => {
   try {
     const worker = await Tesseract.createWorker('por+eng'); 
     
-    await worker.setParameters({
-      tessedit_pageseg_mode: '6', 
-    });
+    // PSM 6 foca-se em blocos de texto (ideal para cartões)
+    await worker.setParameters({ tessedit_pageseg_mode: '6' });
 
     const { data: { text } } = await worker.recognize(dataUrl);
     await worker.terminate();
 
-    // MOSTRAR O TEXTO EM BRUTO NA CAIXA
+    // Mostra o texto na caixa para debug
     rawTextOutput.value = text;
     rawTextContainer.style.display = 'block';
 
-    // TENTAR EXTRAIR OS DADOS DO TEXTO
-    // Limpamos o texto para facilitar a leitura
-    const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+    // Limpa o texto
+    const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    // 1. REGEX DO EMAIL (Exige o @ e proíbe o www.)
-    const emailRegex = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
-    
-    // 2. REGEX DO TELEFONE (Procura números com + e espaços)
-    const phoneRegex = /(\+?\d{1,3}[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{3,4}/g;
-    
+    // 1. REGEX DO EMAIL
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
     let foundEmail = cleanText.match(emailRegex)?.[0] || '';
+    
+    // 2. REGEX DO TELEFONE (Aceita +, espaços, parênteses)
+    const phoneRegex = /(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{3,4}/g;
     let foundPhone = cleanText.match(phoneRegex)?.[0] || '';
 
-    if (foundEmail.includes('www')) {
-      foundEmail = foundEmail.replace(/www\S*/g, '');
+    // 3. TENTAR EXTRAIR NOME e EMPRESA
+    let foundName = '';
+    let foundCompany = '';
+
+    // Procura por "name:" ou "nome:" seguido do texto
+    const nameMatch = cleanText.match(/(?:name|nome)[:\s]+([A-Z][a-zA-Z\s]+)/i);
+    if (nameMatch && nameMatch[1]) {
+      foundName = nameMatch[1].trim();
     }
 
-    // Preenche o formulário com o que encontrou
-    form.phone.value = foundPhone.trim();
-    form.email.value = foundEmail.trim();
+    // Procura por "title:", "company:", "empresa:" ou "CEO"
+    const companyMatch = cleanText.match(/(?:company|empresa|title|ceo)[:\s]+([A-Z][a-zA-Z\s]+)/i);
+    if (companyMatch && companyMatch[1]) {
+      foundCompany = companyMatch[1].trim();
+    }
 
-    if (foundEmail || foundPhone) {
-      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados.';
+    // Preenche o formulário
+    if (foundName) form.name.value = foundName;
+    if (foundCompany) form.company.value = foundCompany;
+    if (foundPhone) form.phone.value = foundPhone.trim();
+    if (foundEmail) form.email.value = foundEmail.trim();
+
+    if (foundEmail || foundPhone || foundName) {
+      ocrStatus.textContent = '✅ Dados encontrados! Confirma e corrige se necessário.';
     } else {
-      ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou email/telefone. Preenche manualmente.';
+      ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou os padrões. Copia da caixa acima.';
     }
 
   } catch (err) {
     console.error(err);
     ocrStatus.textContent = '⚠️ Ocorreu um erro no reconhecimento. Preenche manualmente.';
   }
+}
+
+// Evento: Tirar foto com a câmara
+captureBtn.addEventListener('click', () => {
+  if (!video.videoWidth) return;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+  processImage(dataUrl);
+});
+
+// Evento: Carregar imagem da galeria
+uploadInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    processImage(event.target.result);
+  };
+  reader.readAsDataURL(file);
+  // Limpar o input para permitir carregar a mesma imagem duas vezes
+  uploadInput.value = ''; 
 });
 
 // ============================================================
@@ -176,8 +184,7 @@ form.addEventListener('submit', async (e) => {
     }
     form.reset();
     form.id.value = '';
-    preview.src = '';
-    preview.style.display = 'none';
+    preview.classList.remove('active');
     ocrStatus.textContent = '';
     rawTextContainer.style.display = 'none';
     await loadContacts();
@@ -189,8 +196,7 @@ form.addEventListener('submit', async (e) => {
 clearFormBtn.addEventListener('click', () => {
   form.reset();
   form.id.value = '';
-  preview.src = '';
-  preview.style.display = 'none';
+  preview.classList.remove('active');
   ocrStatus.textContent = '';
   rawTextContainer.style.display = 'none';
 });
