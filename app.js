@@ -1,9 +1,8 @@
 // ============================================================
-// CONFIGURAÇÃO — SUBSTITUIR PELOS TEUS VALORES DO SUPABASE
+// CONFIGURAÇÃO DO SUPABASE (Coloca os teus dados aqui!)
 // ============================================================
-const SUPABASE_URL = 'https://qjxvbhvccmzadcmbzpfg.supabase.co/functions/v1/smooth-service';
-const SUPABASE_ANON_KEY = 'sb_publishable_i0k_wtjMBVp6vFDRVtzAbw_kIbiKO-x';
-const OCR_FUNCTION_NAME = 'smooth-service';
+const SUPABASE_URL = 'https://O_TEU_PROJETO.supabase.co'; 
+const SUPABASE_ANON_KEY = 'sb_publishable_...'; 
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -55,20 +54,25 @@ stopBtn.addEventListener('click', () => {
   stopBtn.style.display = 'none';
 });
 
+// ============================================================
+// TIRAR FOTOGRAFIA E USAR TESSERACT.JS (OCR LOCAL)
+// ============================================================
 captureBtn.addEventListener('click', async () => {
   if (!video.videoWidth) {
     alert('A câmara ainda não está pronta.');
     return;
   }
 
+  // Desenha a foto no canvas
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
 
-  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-  preview.src = URL.createObjectURL(blob);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  preview.src = dataUrl;
   preview.style.display = 'block';
 
+  // Desliga a câmara
   if (stream) {
     stream.getTracks().forEach(t => t.stop());
     stream = null;
@@ -79,27 +83,40 @@ captureBtn.addEventListener('click', async () => {
   captureBtn.style.display = 'none';
   stopBtn.style.display = 'none';
 
-  ocrStatus.textContent = '⏳ A reconhecer texto do cartão...';
+  ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo... (pode demorar uns segundos)';
+
   try {
-    const formData = new FormData();
-    formData.append('image', blob, 'card.jpg');
+    // Inicia o Tesseract
+    const worker = await Tesseract.createWorker('por+eng'); // Lê Português e Inglês
+    
+    // Processa a imagem
+    const { data: { text } } = await worker.recognize(dataUrl);
+    await worker.terminate(); // Fecha o worker para libertar memória
 
-    const { data, error } = await supabaseClient.functions.invoke(OCR_FUNCTION_NAME, {
-      body: formData
-    });
+    console.log("Texto reconhecido:", text); // Ajuda a ver o que ele leu
 
-    if (error) throw new Error(error.message || 'Erro na função OCR');
+    // Expressões regulares para encontrar Email e Telefone no texto
+    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi;
+    // Regex para apanhar números de telefone (com ou sem indicativo, espaços ou traços)
+    const phoneRegex = /(\+\d{1,3}\s?)?(\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}/;
+    
+    const foundEmail = text.match(emailRegex)?.[0] || '';
+    const foundPhone = text.match(phoneRegex)?.[0] || '';
 
-    const result = data || {};
-    form.name.value = result.name || '';
-    form.company.value = result.company || '';
-    form.phone.value = result.phone || '';
-    form.email.value = result.email || '';
+    // Preenche o formulário
+    form.phone.value = foundPhone;
+    form.email.value = foundEmail;
+    // O Nome e a Empresa ficam em branco para o utilizador preencher, pois a IA local não distingue.
 
-    ocrStatus.textContent = '✅ Reconhecimento concluído. Confirma e corrige os dados antes de guardar.';
+    if (foundEmail || foundPhone) {
+      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados e preenche o nome/empresa.';
+    } else {
+      ocrStatus.textContent = '⚠️ Texto reconhecido, mas não encontrei email ou telefone. Preenche manualmente.';
+    }
+
   } catch (err) {
     console.error(err);
-    ocrStatus.textContent = '⚠️ Não foi possível reconhecer automaticamente. Preenche manualmente.';
+    ocrStatus.textContent = '⚠️ Ocorreu um erro no reconhecimento. Preenche manualmente.';
   }
 });
 
