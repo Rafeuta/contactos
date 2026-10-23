@@ -21,6 +21,10 @@ const clearFormBtn = document.getElementById('clearForm');
 const searchInput = document.getElementById('searchInput');
 const contactList = document.getElementById('contactList');
 
+// Elementos novos para o texto em bruto
+const rawTextContainer = document.getElementById('rawTextContainer');
+const rawTextOutput = document.getElementById('rawTextOutput');
+
 let stream = null;
 
 // ============================================================
@@ -38,6 +42,8 @@ startBtn.addEventListener('click', async () => {
     captureBtn.style.display = 'inline-block';
     stopBtn.style.display = 'inline-block';
     ocrStatus.textContent = '';
+    rawTextContainer.style.display = 'none';
+    rawTextOutput.value = '';
   } catch (err) {
     alert('Não foi possível ativar a câmara: ' + err.message + '\n\nCertifica-te que estás em HTTPS.');
   }
@@ -67,10 +73,9 @@ captureBtn.addEventListener('click', async () => {
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
   
-  // Desenha a imagem normal
   ctx.drawImage(video, 0, 0);
 
-  // --- TRUQUE: CORTAR A IMAGEM PARA O TESSERACT SE FOCAR ---
+  // Cortar a imagem para o Tesseract se focar no centro
   const cropCanvas = document.createElement('canvas');
   cropCanvas.width = canvas.width * 0.8; 
   cropCanvas.height = canvas.height * 0.8; 
@@ -101,48 +106,39 @@ captureBtn.addEventListener('click', async () => {
   ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo...';
 
   try {
-    const worker = await Tesseract.createWorker('eng'); 
+    const worker = await Tesseract.createWorker('por+eng'); 
     
     await worker.setParameters({
-      tessedit_pageseg_mode: '6', // Bloco uniforme de texto
+      tessedit_pageseg_mode: '6', 
     });
 
     const { data: { text } } = await worker.recognize(dataUrl);
     await worker.terminate();
 
-    // Limpar o texto lido
+    // MOSTRAR O TEXTO EM BRUTO NA CAIXA
+    rawTextOutput.value = text;
+    rawTextContainer.style.display = 'block';
+
+    // TENTAR EXTRAIR OS DADOS DO TEXTO
+    // Limpamos o texto para facilitar a leitura
     const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').toLowerCase();
 
     // 1. REGEX DO EMAIL (Exige o @ e proíbe o www.)
-    // Procura uma palavra, seguida de @, seguida de palavra e ponto
     const emailRegex = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
     
-    // 2. REGEX DO TELEFONE (Procura o +351 seguido de 9 números)
+    // 2. REGEX DO TELEFONE (Procura números com + e espaços)
     const phoneRegex = /(\+?\d{1,3}[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{3,4}/g;
     
     let foundEmail = cleanText.match(emailRegex)?.[0] || '';
     let foundPhone = cleanText.match(phoneRegex)?.[0] || '';
 
-    // Se ele apanhou o www por engano, limpamos
     if (foundEmail.includes('www')) {
       foundEmail = foundEmail.replace(/www\S*/g, '');
     }
 
-    // Preenche o formulário
+    // Preenche o formulário com o que encontrou
     form.phone.value = foundPhone.trim();
     form.email.value = foundEmail.trim();
-
-    // Tenta adivinhar o nome e a empresa do texto lido
-    // Se encontrar "name": "Michael Teixeira", ele tenta apanhar o Michael Teixeira
-    const nameMatch = cleanText.match(/name[":\s]+([a-z\s]+)/i);
-    if (nameMatch && nameMatch[1]) {
-      form.name.value = nameMatch[1].trim().replace(/\b\w/g, l => l.toUpperCase());
-    }
-
-    const companyMatch = cleanText.match(/(company|empresa|title)[":\s]+([a-z\s]+)/i);
-    if (companyMatch && companyMatch[2]) {
-      form.company.value = companyMatch[2].trim().replace(/\b\w/g, l => l.toUpperCase());
-    }
 
     if (foundEmail || foundPhone) {
       ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados.';
@@ -183,6 +179,7 @@ form.addEventListener('submit', async (e) => {
     preview.src = '';
     preview.style.display = 'none';
     ocrStatus.textContent = '';
+    rawTextContainer.style.display = 'none';
     await loadContacts();
   } catch (err) {
     alert('Erro ao guardar: ' + err.message);
@@ -195,6 +192,7 @@ clearFormBtn.addEventListener('click', () => {
   preview.src = '';
   preview.style.display = 'none';
   ocrStatus.textContent = '';
+  rawTextContainer.style.display = 'none';
 });
 
 async function loadContacts(query = '') {
