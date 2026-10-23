@@ -1,8 +1,8 @@
 // ============================================================
 // CONFIGURAÇÃO DO SUPABASE (Coloca os teus dados aqui!)
 // ============================================================
-const SUPABASE_URL = 'https://O_TEU_PROJETO.supabase.co'; 
-const SUPABASE_ANON_KEY = 'sb_publishable_...'; 
+const SUPABASE_URL = 'https://eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqeHZiaHZjY216YWRjbWJ6cGZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NDU5ODksImV4cCI6MjEwODIyMTk4OX0.EHWtN8P46fAJEhjz7oBkulPHErtjA3hgSTYARbZzhZY.supabase.co'; 
+const SUPABASE_ANON_KEY = 'sb_publishable_i0k_wtjMBVp6vFDRVtzAbw_kIbiKO-x'; 
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
