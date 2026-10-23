@@ -38,10 +38,10 @@ main {
   background: #000;
   align-self: center;
   transform: translate3d(0, 0, 0);
+  display: none;
 }
 
-#preview { display: none; }
-#preview[src] { display: block; }
+#video.active, #preview.active { display: block; }
 
 .buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
 
@@ -52,6 +52,7 @@ main {
   font-size: 0.95rem;
   cursor: pointer;
   transition: opacity 0.15s;
+  font-family: inherit;
 }
 
 .btn:active { opacity: 0.7; }
@@ -60,7 +61,7 @@ main {
 .btn.secondary { background: #e5e7eb; color: #374151; }
 .btn.danger { background: #ef4444; color: #fff; }
 
-.status { margin-top: 0.75rem; font-size: 0.9rem; color: #2563eb; min-height: 1.2em; }
+.status { margin-top: 0.75rem; font-size: 0.9rem; color: #2563eb; min-height: 1.2em; font-weight: 500;}
 
 form label { display: block; margin-bottom: 0.75rem; font-size: 0.9rem; color: #374151; }
 
@@ -72,6 +73,7 @@ form input {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.95rem;
+  font-family: inherit;
 }
 
 form input:focus {
