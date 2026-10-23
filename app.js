@@ -71,22 +71,20 @@ captureBtn.addEventListener('click', async () => {
   ctx.drawImage(video, 0, 0);
 
   // --- TRUQUE: CORTAR A IMAGEM PARA O TESSERACT SE FOCAR ---
-  // Vamos criar um segundo canvas só com a parte central (onde costuma estar o texto)
   const cropCanvas = document.createElement('canvas');
-  cropCanvas.width = canvas.width * 0.8; // Corta 10% de cada lado
-  cropCanvas.height = canvas.height * 0.8; // Corta 10% de cima e baixo
+  cropCanvas.width = canvas.width * 0.8; 
+  cropCanvas.height = canvas.height * 0.8; 
   const cropCtx = cropCanvas.getContext('2d');
   
-  // Desenha apenas a parte central no novo canvas
   cropCtx.drawImage(
     canvas, 
-    canvas.width * 0.1, canvas.height * 0.1, // Onde começa o corte
-    cropCanvas.width, cropCanvas.height,      // Tamanho do corte
-    0, 0,                                     // Onde desenhar no novo canvas
-    cropCanvas.width, cropCanvas.height       // Tamanho final
+    canvas.width * 0.1, canvas.height * 0.1, 
+    cropCanvas.width, cropCanvas.height,      
+    0, 0,                                     
+    cropCanvas.width, cropCanvas.height       
   );
 
-  const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.95); // Aumentei a qualidade
+  const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.95); 
   preview.src = dataUrl;
   preview.style.display = 'block';
 
@@ -103,35 +101,51 @@ captureBtn.addEventListener('click', async () => {
   ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo...';
 
   try {
-    // Usa apenas o inglês, que é mais rápido e o cartão está em inglês
     const worker = await Tesseract.createWorker('eng'); 
     
-    // PSM 6: Assume que é um bloco uniforme de texto (ignora desenhos e fundos)
     await worker.setParameters({
-      tessedit_pageseg_mode: '6',
+      tessedit_pageseg_mode: '6', // Bloco uniforme de texto
     });
 
     const { data: { text } } = await worker.recognize(dataUrl);
     await worker.terminate();
 
+    // Limpar o texto lido
     const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').toLowerCase();
 
-    // REGEX MELHORADO: Aceita espaços e pontos onde devia estar o @ ou o .
-    const emailRegex = /[a-z0-9._%+-]+[\s@]+[a-z0-9.-]+\.[a-z]{2,}/gi;
-    // Telefone: aceita o +, espaços, e blocos de 3 a 4 números
-    const phoneRegex = /(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{3,4}/g;
+    // 1. REGEX DO EMAIL (Exige o @ e proíbe o www.)
+    // Procura uma palavra, seguida de @, seguida de palavra e ponto
+    const emailRegex = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+    
+    // 2. REGEX DO TELEFONE (Procura o +351 seguido de 9 números)
+    const phoneRegex = /(\+?\d{1,3}[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{3,4}/g;
     
     let foundEmail = cleanText.match(emailRegex)?.[0] || '';
     let foundPhone = cleanText.match(phoneRegex)?.[0] || '';
 
-    // Limpa os espaços que o Tesseract possa ter metido no email (ex: "sel teixeiro @ digitextus pt")
-    foundEmail = foundEmail.replace(/\s+/g, '').replace('@.', '@').replace('.pt', '.pt');
+    // Se ele apanhou o www por engano, limpamos
+    if (foundEmail.includes('www')) {
+      foundEmail = foundEmail.replace(/www\S*/g, '');
+    }
 
+    // Preenche o formulário
     form.phone.value = foundPhone.trim();
     form.email.value = foundEmail.trim();
 
+    // Tenta adivinhar o nome e a empresa do texto lido
+    // Se encontrar "name": "Michael Teixeira", ele tenta apanhar o Michael Teixeira
+    const nameMatch = cleanText.match(/name[":\s]+([a-z\s]+)/i);
+    if (nameMatch && nameMatch[1]) {
+      form.name.value = nameMatch[1].trim().replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    const companyMatch = cleanText.match(/(company|empresa|title)[":\s]+([a-z\s]+)/i);
+    if (companyMatch && companyMatch[2]) {
+      form.company.value = companyMatch[2].trim().replace(/\b\w/g, l => l.toUpperCase());
+    }
+
     if (foundEmail || foundPhone) {
-      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados e preenche o nome/empresa.';
+      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados.';
     } else {
       ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou email/telefone. Preenche manualmente.';
     }
