@@ -27,6 +27,12 @@
         <button id="stopCamera" class="btn secondary" style="display:none;">⏹ Parar Câmara</button>
       </div>
       <p id="ocrStatus" class="status"></p>
+      
+      <!-- Nova caixa para mostrar o texto em bruto -->
+      <div id="rawTextContainer" style="display:none; margin-top: 1rem;">
+        <label style="font-size: 0.9rem; color: #374151; font-weight: 600;">Texto Lido (podes copiar daqui):</label>
+        <textarea id="rawTextOutput" rows="6" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 8px; margin-top: 0.25rem; font-family: monospace; font-size: 0.9rem;"></textarea>
+      </div>
     </section>
 
     <!-- Formulário -->
