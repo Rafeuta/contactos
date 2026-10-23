@@ -65,9 +65,28 @@ captureBtn.addEventListener('click', async () => {
 
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
+  const ctx = canvas.getContext('2d');
+  
+  // Desenha a imagem normal
+  ctx.drawImage(video, 0, 0);
 
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  // --- TRUQUE: CORTAR A IMAGEM PARA O TESSERACT SE FOCAR ---
+  // Vamos criar um segundo canvas só com a parte central (onde costuma estar o texto)
+  const cropCanvas = document.createElement('canvas');
+  cropCanvas.width = canvas.width * 0.8; // Corta 10% de cada lado
+  cropCanvas.height = canvas.height * 0.8; // Corta 10% de cima e baixo
+  const cropCtx = cropCanvas.getContext('2d');
+  
+  // Desenha apenas a parte central no novo canvas
+  cropCtx.drawImage(
+    canvas, 
+    canvas.width * 0.1, canvas.height * 0.1, // Onde começa o corte
+    cropCanvas.width, cropCanvas.height,      // Tamanho do corte
+    0, 0,                                     // Onde desenhar no novo canvas
+    cropCanvas.width, cropCanvas.height       // Tamanho final
+  );
+
+  const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.95); // Aumentei a qualidade
   preview.src = dataUrl;
   preview.style.display = 'block';
 
@@ -84,28 +103,37 @@ captureBtn.addEventListener('click', async () => {
   ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo...';
 
   try {
-    const worker = await Tesseract.createWorker('por+eng');
+    // Usa apenas o inglês, que é mais rápido e o cartão está em inglês
+    const worker = await Tesseract.createWorker('eng'); 
+    
+    // PSM 6: Assume que é um bloco uniforme de texto (ignora desenhos e fundos)
+    await worker.setParameters({
+      tessedit_pageseg_mode: '6',
+    });
+
     const { data: { text } } = await worker.recognize(dataUrl);
     await worker.terminate();
 
-    // ALERTA PARA VERMOS O QUE O LEITOR VIU
-    alert("O Tesseract leu este texto:\n\n" + text);
+    const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').toLowerCase();
 
-    const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
-
-    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
+    // REGEX MELHORADO: Aceita espaços e pontos onde devia estar o @ ou o .
+    const emailRegex = /[a-z0-9._%+-]+[\s@]+[a-z0-9.-]+\.[a-z]{2,}/gi;
+    // Telefone: aceita o +, espaços, e blocos de 3 a 4 números
     const phoneRegex = /(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{3,4}/g;
     
-    const foundEmail = cleanText.match(emailRegex)?.[0] || '';
-    const foundPhone = cleanText.match(phoneRegex)?.[0] || '';
+    let foundEmail = cleanText.match(emailRegex)?.[0] || '';
+    let foundPhone = cleanText.match(phoneRegex)?.[0] || '';
+
+    // Limpa os espaços que o Tesseract possa ter metido no email (ex: "sel teixeiro @ digitextus pt")
+    foundEmail = foundEmail.replace(/\s+/g, '').replace('@.', '@').replace('.pt', '.pt');
 
     form.phone.value = foundPhone.trim();
     form.email.value = foundEmail.trim();
 
     if (foundEmail || foundPhone) {
-      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados.';
+      ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados e preenche o nome/empresa.';
     } else {
-      ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou o formato de email/telefone. Preenche manualmente.';
+      ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou email/telefone. Preenche manualmente.';
     }
 
   } catch (err) {
