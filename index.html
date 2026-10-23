@@ -13,25 +13,34 @@
   </header>
 
   <main>
-    <!-- Secção câmara -->
+    <!-- Secção de Captura -->
     <section class="card">
-      <h2>1. Fotografar Cartão de Visita</h2>
+      <h2>1. Adicionar Cartão de Visita</h2>
+      
+      <div class="buttons" style="margin-bottom: 1rem;">
+        <button id="startCamera" class="btn primary">📷 Ativar Câmara</button>
+        <button id="stopCamera" class="btn secondary" style="display:none;">⏹ Parar Câmara</button>
+        <button id="captureBtn" class="btn success" style="display:none;">📸 Tirar Fotografia</button>
+        
+        <!-- Botão para carregar imagem -->
+        <label class="btn primary" style="cursor: pointer; display: inline-block;">
+          🖼️ Carregar Imagem
+          <input type="file" id="uploadInput" accept="image/*" style="display: none;">
+        </label>
+      </div>
+
       <div class="camera-area">
         <video id="video" autoplay playsinline muted></video>
         <canvas id="canvas" style="display:none;"></canvas>
         <img id="preview" alt="Pré-visualização" />
       </div>
-      <div class="buttons">
-        <button id="startCamera" class="btn primary">📷 Ativar Câmara</button>
-        <button id="captureBtn" class="btn success" style="display:none;">📸 Tirar Fotografia</button>
-        <button id="stopCamera" class="btn secondary" style="display:none;">⏹ Parar Câmara</button>
-      </div>
+      
       <p id="ocrStatus" class="status"></p>
       
-      <!-- Nova caixa para mostrar o texto em bruto -->
+      <!-- Caixa de texto em bruto (Debug) -->
       <div id="rawTextContainer" style="display:none; margin-top: 1rem;">
-        <label style="font-size: 0.9rem; color: #374151; font-weight: 600;">Texto Lido (podes copiar daqui):</label>
-        <textarea id="rawTextOutput" rows="6" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 8px; margin-top: 0.25rem; font-family: monospace; font-size: 0.9rem;"></textarea>
+        <label style="font-size: 0.9rem; color: #374151; font-weight: 600;">Texto Lido:</label>
+        <textarea id="rawTextOutput" rows="5" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 8px; margin-top: 0.25rem; font-family: monospace; font-size: 0.85rem; background: #f9fafb;"></textarea>
       </div>
     </section>
 
@@ -59,11 +68,11 @@
     </section>
   </main>
 
-  <!-- Script do Tesseract.js (OCR local) -->
+  <!-- Tesseract.js -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <!-- Script do Supabase -->
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- O teu script -->
+  <!-- App -->
   <script src="app.js"></script>
 </body>
 </html>
