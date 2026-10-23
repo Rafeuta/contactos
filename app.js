@@ -87,31 +87,37 @@ captureBtn.addEventListener('click', async () => {
 
   try {
     // Inicia o Tesseract
-    const worker = await Tesseract.createWorker('por+eng'); // Lê Português e Inglês
+    const worker = await Tesseract.createWorker('por+eng'); 
     
     // Processa a imagem
     const { data: { text } } = await worker.recognize(dataUrl);
-    await worker.terminate(); // Fecha o worker para libertar memória
+    await worker.terminate(); 
 
-    console.log("Texto reconhecido:", text); // Ajuda a ver o que ele leu
+    console.log("Texto reconhecido:", text); 
 
-    // Expressões regulares para encontrar Email e Telefone no texto
-    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi;
-    // Regex para apanhar números de telefone (com ou sem indicativo, espaços ou traços)
-    const phoneRegex = /(\+\d{1,3}\s?)?(\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}/;
+    // Limpar o texto lido (remove quebras de linha e espaços estranhos)
+    const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+    // Expressões regulares melhoradas para encontrar Email e Telefone
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
+    // Aceita números com +, espaços e hífens (ex: +351 967 605 414)
+    const phoneRegex = /(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{3,4}/g;
     
-    const foundEmail = text.match(emailRegex)?.[0] || '';
-    const foundPhone = text.match(phoneRegex)?.[0] || '';
+    const foundEmail = cleanText.match(emailRegex)?.[0] || '';
+    const foundPhone = cleanText.match(phoneRegex)?.[0] || '';
 
     // Preenche o formulário
-    form.phone.value = foundPhone;
-    form.email.value = foundEmail;
-    // O Nome e a Empresa ficam em branco para o utilizador preencher, pois a IA local não distingue.
+    form.phone.value = foundPhone.trim();
+    form.email.value = foundEmail.trim();
+    
+    // O Nome e a Empresa ficam em branco para o utilizador preencher
+    form.name.value = '';
+    form.company.value = '';
 
     if (foundEmail || foundPhone) {
       ocrStatus.textContent = '✅ Contactos encontrados! Confirma os dados e preenche o nome/empresa.';
     } else {
-      ocrStatus.textContent = '⚠️ Texto reconhecido, mas não encontrei email ou telefone. Preenche manualmente.';
+      ocrStatus.textContent = '⚠️ Leu o texto, mas não encontrou email/telefone. Preenche manualmente.';
     }
 
   } catch (err) {
@@ -172,7 +178,7 @@ async function loadContacts(query = '') {
   const { data, error } = await req;
   if (error) {
     console.error(error);
-    contactList.innerHTML = '<li class="empty">Erro ao carregar contactos.</li>';
+    contactList.innerHTML = '<li class="empty">Erro ao carregar contactos. Verifica a ligação ao Supabase.</li>';
     return;
   }
   renderList(data || []);
@@ -243,4 +249,5 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// Inicia a lista ao carregar a página
 loadContacts();
