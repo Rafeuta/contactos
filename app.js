@@ -28,7 +28,7 @@ const rawTextOutput = document.getElementById('rawTextOutput');
 let stream = null;
 
 // ============================================================
-// CÂMARA E OCR (Mantido igual)
+// CÂMARA E OCR
 // ============================================================
 startBtn.addEventListener('click', async () => {
   try {
@@ -74,18 +74,57 @@ async function processImage(dataUrl) {
   captureBtn.style.display = 'none';
   stopBtn.style.display = 'none';
 
-  ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo...';
+  ocrStatus.textContent = '⏳ A processar imagem e a reconhecer texto...';
 
   try {
-    const worker = await Tesseract.createWorker('eng');
-    await worker.setParameters({ tessedit_pageseg_mode: '11' });
+    // 1. PRÉ-PROCESSAMENTO DA IMAGEM (Filtro Preto e Branco para remover sombras)
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise((resolve) => { img.onload = resolve; });
 
-    const { data: { text } } = await worker.recognize(dataUrl);
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = img.width;
+    tempCanvas.height = img.height;
+    const ctx = tempCanvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
+
+    // Passar por cada píxel e transformar em preto ou branco puro
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      
+      // Calcula a luminosidade (média das cores)
+      const brightness = (r + g + b) / 3;
+      
+      // Se for escuro, fica preto (0). Se for claro, fica branco (255).
+      // O valor 140 pode ser ajustado (maior = mais letras pretas)
+      const color = brightness < 140 ? 0 : 255;
+      
+      data[i] = color;     // Red
+      data[i + 1] = color; // Green
+      data[i + 2] = color; // Blue
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    const processedDataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
+
+    // 2. TESSERACT
+    const worker = await Tesseract.createWorker('por+eng');
+    
+    // PSM 4: Assume uma coluna de texto de tamanho variável
+    await worker.setParameters({ tessedit_pageseg_mode: '4' });
+
+    const { data: { text } } = await worker.recognize(processedDataUrl);
     await worker.terminate();
 
     rawTextOutput.value = text;
     rawTextContainer.style.display = 'block';
 
+    // 3. EXTRAÇÃO
     const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
@@ -120,6 +159,7 @@ async function processImage(dataUrl) {
   }
 }
 
+// Evento: Tirar foto com a câmara
 captureBtn.addEventListener('click', () => {
   if (!video.videoWidth) return;
   canvas.width = video.videoWidth;
@@ -129,6 +169,7 @@ captureBtn.addEventListener('click', () => {
   processImage(dataUrl);
 });
 
+// Evento: Carregar imagem da galeria
 uploadInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -148,7 +189,6 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(form);
   
-  // Adicionamos o tipo ao objeto do contacto
   const contact = {
     type: fd.get('type') || 'Potencial Cliente',
     name: (fd.get('name') || '').trim(),
@@ -185,7 +225,6 @@ clearFormBtn.addEventListener('click', () => {
   rawTextContainer.style.display = 'none';
 });
 
-// A função loadContacts agora suporta filtro por tipo
 async function loadContacts(query = '', typeFilter = '') {
   let req = supabaseClient.from('contacts').select('*').order('created_at', { ascending: false });
 
@@ -214,7 +253,6 @@ function renderList(contacts) {
   }
 
   contactList.innerHTML = contacts.map(c => {
-    // Define a classe CSS do badge com base no tipo
     let badgeClass = 'potencial';
     if (c.type === 'Cliente') badgeClass = 'cliente';
     if (c.type === 'Fornecedor') badgeClass = 'fornecedor';
@@ -248,7 +286,7 @@ function editContact(id, contacts) {
   const c = contacts.find(x => String(x.id) === String(id));
   if (!c) return;
   form.id.value = c.id;
-  form.type.value = c.type || 'Potencial Cliente'; // Preenche o dropdown ao editar
+  form.type.value = c.type || 'Potencial Cliente'; 
   form.name.value = c.name || '';
   form.company.value = c.company || '';
   form.phone.value = c.phone || '';
@@ -266,14 +304,12 @@ async function deleteContact(id) {
   await loadContacts(searchInput.value, filterInput.value);
 }
 
-// Pesquisa
 let searchTimer = null;
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => loadContacts(searchInput.value, filterInput.value), 250);
 });
 
-// NOVO: Evento de mudança do filtro
 filterInput.addEventListener('change', () => {
   loadContacts(searchInput.value, filterInput.value);
 });
