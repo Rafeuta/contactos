@@ -20,6 +20,7 @@ const ocrStatus = document.getElementById('ocrStatus');
 const form = document.getElementById('contactForm');
 const clearFormBtn = document.getElementById('clearForm');
 const searchInput = document.getElementById('searchInput');
+const filterInput = document.getElementById('filterInput');
 const contactList = document.getElementById('contactList');
 const rawTextContainer = document.getElementById('rawTextContainer');
 const rawTextOutput = document.getElementById('rawTextOutput');
@@ -27,7 +28,7 @@ const rawTextOutput = document.getElementById('rawTextOutput');
 let stream = null;
 
 // ============================================================
-// CÂMARA
+// CÂMARA E OCR (Mantido igual)
 // ============================================================
 startBtn.addEventListener('click', async () => {
   try {
@@ -59,9 +60,6 @@ stopBtn.addEventListener('click', () => {
   stopBtn.style.display = 'none';
 });
 
-// ============================================================
-// PROCESSAMENTO DA IMAGEM (Câmara ou Upload)
-// ============================================================
 async function processImage(dataUrl) {
   preview.src = dataUrl;
   preview.classList.add('active');
@@ -79,46 +77,32 @@ async function processImage(dataUrl) {
   ocrStatus.textContent = '⏳ A reconhecer texto no dispositivo...';
 
   try {
-    const worker = await Tesseract.createWorker('por+eng'); 
-    
-    // PSM 6 foca-se em blocos de texto (ideal para cartões)
-    await worker.setParameters({ tessedit_pageseg_mode: '6' });
+    const worker = await Tesseract.createWorker('eng');
+    await worker.setParameters({ tessedit_pageseg_mode: '11' });
 
     const { data: { text } } = await worker.recognize(dataUrl);
     await worker.terminate();
 
-    // Mostra o texto na caixa para debug
     rawTextOutput.value = text;
     rawTextContainer.style.display = 'block';
 
-    // Limpa o texto
     const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-    // 1. REGEX DO EMAIL
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
     let foundEmail = cleanText.match(emailRegex)?.[0] || '';
     
-    // 2. REGEX DO TELEFONE (Aceita +, espaços, parênteses)
     const phoneRegex = /(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{3,4}/g;
     let foundPhone = cleanText.match(phoneRegex)?.[0] || '';
 
-    // 3. TENTAR EXTRAIR NOME e EMPRESA
     let foundName = '';
     let foundCompany = '';
 
-    // Procura por "name:" ou "nome:" seguido do texto
-    const nameMatch = cleanText.match(/(?:name|nome)[:\s]+([A-Z][a-zA-Z\s]+)/i);
-    if (nameMatch && nameMatch[1]) {
-      foundName = nameMatch[1].trim();
-    }
+    const nameMatch = cleanText.match(/(?:name|nome)["'\s:]+([A-Z][a-zA-Z\s]+)/i);
+    if (nameMatch && nameMatch[1]) foundName = nameMatch[1].trim();
 
-    // Procura por "title:", "company:", "empresa:" ou "CEO"
-    const companyMatch = cleanText.match(/(?:company|empresa|title|ceo)[:\s]+([A-Z][a-zA-Z\s]+)/i);
-    if (companyMatch && companyMatch[1]) {
-      foundCompany = companyMatch[1].trim();
-    }
+    const companyMatch = cleanText.match(/(?:company|empresa|title|ceo)["'\s:]+([A-Z][a-zA-Z\s]+)/i);
+    if (companyMatch && companyMatch[1]) foundCompany = companyMatch[1].trim();
 
-    // Preenche o formulário
     if (foundName) form.name.value = foundName;
     if (foundCompany) form.company.value = foundCompany;
     if (foundPhone) form.phone.value = foundPhone.trim();
@@ -136,7 +120,6 @@ async function processImage(dataUrl) {
   }
 }
 
-// Evento: Tirar foto com a câmara
 captureBtn.addEventListener('click', () => {
   if (!video.videoWidth) return;
   canvas.width = video.videoWidth;
@@ -146,7 +129,6 @@ captureBtn.addEventListener('click', () => {
   processImage(dataUrl);
 });
 
-// Evento: Carregar imagem da galeria
 uploadInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -156,7 +138,6 @@ uploadInput.addEventListener('change', (e) => {
     processImage(event.target.result);
   };
   reader.readAsDataURL(file);
-  // Limpar o input para permitir carregar a mesma imagem duas vezes
   uploadInput.value = ''; 
 });
 
@@ -166,7 +147,10 @@ uploadInput.addEventListener('change', (e) => {
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(form);
+  
+  // Adicionamos o tipo ao objeto do contacto
   const contact = {
+    type: fd.get('type') || 'Potencial Cliente',
     name: (fd.get('name') || '').trim(),
     company: (fd.get('company') || '').trim(),
     phone: (fd.get('phone') || '').trim(),
@@ -201,12 +185,17 @@ clearFormBtn.addEventListener('click', () => {
   rawTextContainer.style.display = 'none';
 });
 
-async function loadContacts(query = '') {
+// A função loadContacts agora suporta filtro por tipo
+async function loadContacts(query = '', typeFilter = '') {
   let req = supabaseClient.from('contacts').select('*').order('created_at', { ascending: false });
 
   if (query.trim()) {
     const q = query.trim();
     req = req.or(`name.ilike.%${q}%,company.ilike.%${q}%`);
+  }
+
+  if (typeFilter) {
+    req = req.eq('type', typeFilter);
   }
 
   const { data, error } = await req;
@@ -224,8 +213,15 @@ function renderList(contacts) {
     return;
   }
 
-  contactList.innerHTML = contacts.map(c => `
+  contactList.innerHTML = contacts.map(c => {
+    // Define a classe CSS do badge com base no tipo
+    let badgeClass = 'potencial';
+    if (c.type === 'Cliente') badgeClass = 'cliente';
+    if (c.type === 'Fornecedor') badgeClass = 'fornecedor';
+
+    return `
     <li>
+      <span class="badge ${badgeClass}">${escapeHtml(c.type || 'Potencial Cliente')}</span>
       <div class="name">${escapeHtml(c.name || '(sem nome)')}</div>
       <div class="meta">${c.company ? '🏢 ' + escapeHtml(c.company) : ''}</div>
       <div class="meta">
@@ -237,7 +233,7 @@ function renderList(contacts) {
         <button class="btn danger" data-action="delete" data-id="${c.id}">🗑 Eliminar</button>
       </div>
     </li>
-  `).join('');
+  `}).join('');
 
   contactList.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -252,6 +248,7 @@ function editContact(id, contacts) {
   const c = contacts.find(x => String(x.id) === String(id));
   if (!c) return;
   form.id.value = c.id;
+  form.type.value = c.type || 'Potencial Cliente'; // Preenche o dropdown ao editar
   form.name.value = c.name || '';
   form.company.value = c.company || '';
   form.phone.value = c.phone || '';
@@ -266,13 +263,19 @@ async function deleteContact(id) {
     alert('Erro ao eliminar: ' + error.message);
     return;
   }
-  await loadContacts(searchInput.value);
+  await loadContacts(searchInput.value, filterInput.value);
 }
 
+// Pesquisa
 let searchTimer = null;
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => loadContacts(searchInput.value), 250);
+  searchTimer = setTimeout(() => loadContacts(searchInput.value, filterInput.value), 250);
+});
+
+// NOVO: Evento de mudança do filtro
+filterInput.addEventListener('change', () => {
+  loadContacts(searchInput.value, filterInput.value);
 });
 
 function escapeHtml(str) {
