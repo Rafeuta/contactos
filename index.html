@@ -13,7 +13,6 @@
   </header>
 
   <main>
-    <!-- Secção de Captura -->
     <section class="card">
       <h2>1. Adicionar Cartão de Visita</h2>
       
@@ -42,13 +41,11 @@
       </div>
     </section>
 
-    <!-- Formulário -->
     <section class="card">
       <h2>2. Dados do Contacto</h2>
       <form id="contactForm">
         <input type="hidden" name="id" />
         
-        <!-- NOVO CAMPO: Tipo de Contacto -->
         <label>Tipo de Contacto
           <select name="type" required style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.55rem 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; background: #fff;">
             <option value="Potencial Cliente">Potencial Cliente</option>
@@ -69,11 +66,9 @@
       </form>
     </section>
 
-    <!-- Pesquisa e lista -->
     <section class="card">
       <h2>3. Contactos Guardados</h2>
       
-      <!-- NOVO CAMPO: Filtro por Tipo -->
       <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
         <input id="searchInput" type="search" placeholder="🔍 Pesquisar por nome ou empresa..." class="search" style="margin-bottom: 0; flex: 1;" />
         <select id="filterInput" style="padding: 0.6rem 0.8rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; background: #fff; width: auto;">
