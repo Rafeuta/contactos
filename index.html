@@ -22,7 +22,6 @@
         <button id="stopCamera" class="btn secondary" style="display:none;">⏹ Parar Câmara</button>
         <button id="captureBtn" class="btn success" style="display:none;">📸 Tirar Fotografia</button>
         
-        <!-- Botão para carregar imagem -->
         <label class="btn primary" style="cursor: pointer; display: inline-block;">
           🖼️ Carregar Imagem
           <input type="file" id="uploadInput" accept="image/*" style="display: none;">
@@ -37,10 +36,9 @@
       
       <p id="ocrStatus" class="status"></p>
       
-      <!-- Caixa de texto em bruto (Debug) -->
       <div id="rawTextContainer" style="display:none; margin-top: 1rem;">
-        <label style="font-size: 0.9rem; color: #374151; font-weight: 600;">Texto Lido:</label>
-        <textarea id="rawTextOutput" rows="5" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 8px; margin-top: 0.25rem; font-family: monospace; font-size: 0.85rem; background: #f9fafb;"></textarea>
+        <label style="font-size: 0.9rem; color: #374151; font-weight: 600;">Texto Lido (podes copiar daqui):</label>
+        <textarea id="rawTextOutput" rows="6" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 8px; margin-top: 0.25rem; font-family: monospace; font-size: 0.9rem;"></textarea>
       </div>
     </section>
 
@@ -49,10 +47,21 @@
       <h2>2. Dados do Contacto</h2>
       <form id="contactForm">
         <input type="hidden" name="id" />
+        
+        <!-- NOVO CAMPO: Tipo de Contacto -->
+        <label>Tipo de Contacto
+          <select name="type" required style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.55rem 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; background: #fff;">
+            <option value="Potencial Cliente">Potencial Cliente</option>
+            <option value="Cliente">Cliente</option>
+            <option value="Fornecedor">Fornecedor</option>
+          </select>
+        </label>
+
         <label>Nome *<input name="name" required placeholder="Nome completo" /></label>
         <label>Empresa<input name="company" placeholder="Empresa" /></label>
         <label>Telefone<input name="phone" type="tel" placeholder="+351 ..." /></label>
         <label>Email<input name="email" type="email" placeholder="nome@empresa.pt" /></label>
+        
         <div class="buttons">
           <button type="submit" class="btn success">💾 Guardar Contacto</button>
           <button type="button" id="clearForm" class="btn secondary">Limpar</button>
@@ -63,16 +72,24 @@
     <!-- Pesquisa e lista -->
     <section class="card">
       <h2>3. Contactos Guardados</h2>
-      <input id="searchInput" type="search" placeholder="🔍 Pesquisar por nome ou empresa..." class="search" />
+      
+      <!-- NOVO CAMPO: Filtro por Tipo -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <input id="searchInput" type="search" placeholder="🔍 Pesquisar por nome ou empresa..." class="search" style="margin-bottom: 0; flex: 1;" />
+        <select id="filterInput" style="padding: 0.6rem 0.8rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; background: #fff; width: auto;">
+          <option value="">Todos os tipos</option>
+          <option value="Potencial Cliente">Potencial Cliente</option>
+          <option value="Cliente">Cliente</option>
+          <option value="Fornecedor">Fornecedor</option>
+        </select>
+      </div>
+
       <ul id="contactList" class="contact-list"></ul>
     </section>
   </main>
 
-  <!-- Tesseract.js -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- App -->
   <script src="app.js"></script>
 </body>
 </html>
