@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_i0k_wtjMBVp6vFDRVtzAbw_kIbiKO-x';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================
-// ELEMENTOS DOM
+// ELEMENTOS DOM (Atualizados com os IDs corretos)
 // ============================================================
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
@@ -25,10 +25,17 @@ const contactList = document.getElementById('contactList');
 const rawTextContainer = document.getElementById('rawTextContainer');
 const rawTextOutput = document.getElementById('rawTextOutput');
 
+// Novos IDs dos campos do formulário
+const formType = document.getElementById('contactType');
+const formName = document.getElementById('contactName');
+const formCompany = document.getElementById('contactCompany');
+const formPhone = document.getElementById('contactPhone');
+const formEmail = document.getElementById('contactEmail');
+
 let stream = null;
 
 // ============================================================
-// CÂMARA E OCR
+// CÂMARA
 // ============================================================
 startBtn.addEventListener('click', async () => {
   try {
@@ -60,6 +67,9 @@ stopBtn.addEventListener('click', () => {
   stopBtn.style.display = 'none';
 });
 
+// ============================================================
+// PROCESSAMENTO DA IMAGEM (OCR)
+// ============================================================
 async function processImage(dataUrl) {
   preview.src = dataUrl;
   preview.classList.add('active');
@@ -77,7 +87,7 @@ async function processImage(dataUrl) {
   ocrStatus.textContent = '⏳ A processar imagem e a reconhecer texto...';
 
   try {
-    // 1. PRÉ-PROCESSAMENTO DA IMAGEM (Filtro Preto e Branco para remover sombras)
+    // 1. PRÉ-PROCESSAMENTO DA IMAGEM (Filtro Preto e Branco)
     const img = new Image();
     img.src = dataUrl;
     await new Promise((resolve) => { img.onload = resolve; });
@@ -97,16 +107,12 @@ async function processImage(dataUrl) {
       const g = data[i + 1];
       const b = data[i + 2];
       
-      // Calcula a luminosidade (média das cores)
       const brightness = (r + g + b) / 3;
-      
-      // Se for escuro, fica preto (0). Se for claro, fica branco (255).
-      // O valor 140 pode ser ajustado (maior = mais letras pretas)
       const color = brightness < 140 ? 0 : 255;
       
-      data[i] = color;     // Red
-      data[i + 1] = color; // Green
-      data[i + 2] = color; // Blue
+      data[i] = color;
+      data[i + 1] = color;
+      data[i + 2] = color;
     }
     ctx.putImageData(imageData, 0, 0);
 
@@ -114,8 +120,6 @@ async function processImage(dataUrl) {
 
     // 2. TESSERACT
     const worker = await Tesseract.createWorker('por+eng');
-    
-    // PSM 4: Assume uma coluna de texto de tamanho variável
     await worker.setParameters({ tessedit_pageseg_mode: '4' });
 
     const { data: { text } } = await worker.recognize(processedDataUrl);
@@ -142,10 +146,11 @@ async function processImage(dataUrl) {
     const companyMatch = cleanText.match(/(?:company|empresa|title|ceo)["'\s:]+([A-Z][a-zA-Z\s]+)/i);
     if (companyMatch && companyMatch[1]) foundCompany = companyMatch[1].trim();
 
-    if (foundName) form.name.value = foundName;
-    if (foundCompany) form.company.value = foundCompany;
-    if (foundPhone) form.phone.value = foundPhone.trim();
-    if (foundEmail) form.email.value = foundEmail.trim();
+    // Preenche os campos usando os novos IDs
+    if (foundName) formName.value = foundName;
+    if (foundCompany) formCompany.value = foundCompany;
+    if (foundPhone) formPhone.value = foundPhone.trim();
+    if (foundEmail) formEmail.value = foundEmail.trim();
 
     if (foundEmail || foundPhone || foundName) {
       ocrStatus.textContent = '✅ Dados encontrados! Confirma e corrige se necessário.';
@@ -187,16 +192,17 @@ uploadInput.addEventListener('change', (e) => {
 // ============================================================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const fd = new FormData(form);
   
+  // Recolhe os dados usando os novos IDs
   const contact = {
-    type: fd.get('type') || 'Potencial Cliente',
-    name: (fd.get('name') || '').trim(),
-    company: (fd.get('company') || '').trim(),
-    phone: (fd.get('phone') || '').trim(),
-    email: (fd.get('email') || '').trim()
+    type: formType.value || 'Potencial Cliente',
+    name: formName.value.trim(),
+    company: formCompany.value.trim(),
+    phone: formPhone.value.trim(),
+    email: formEmail.value.trim()
   };
-  const id = fd.get('id');
+  
+  const id = document.querySelector('input[name="id"]').value;
 
   try {
     if (id) {
@@ -207,7 +213,7 @@ form.addEventListener('submit', async (e) => {
       if (error) throw error;
     }
     form.reset();
-    form.id.value = '';
+    document.querySelector('input[name="id"]').value = '';
     preview.classList.remove('active');
     ocrStatus.textContent = '';
     rawTextContainer.style.display = 'none';
@@ -219,7 +225,7 @@ form.addEventListener('submit', async (e) => {
 
 clearFormBtn.addEventListener('click', () => {
   form.reset();
-  form.id.value = '';
+  document.querySelector('input[name="id"]').value = '';
   preview.classList.remove('active');
   ocrStatus.textContent = '';
   rawTextContainer.style.display = 'none';
@@ -267,8 +273,8 @@ function renderList(contacts) {
         ${c.email ? ' • ✉️ ' + escapeHtml(c.email) : ''}
       </div>
       <div class="actions">
-        <button class="btn secondary" data-action="edit" data-id="${c.id}">✏️ Editar</button>
-        <button class="btn danger" data-action="delete" data-id="${c.id}">🗑 Eliminar</button>
+        <button class="btn secondary" data-action="edit" data-id="${c.id}" aria-label="Editar contacto ${escapeHtml(c.name)}">✏️ Editar</button>
+        <button class="btn danger" data-action="delete" data-id="${c.id}" aria-label="Eliminar contacto ${escapeHtml(c.name)}">🗑 Eliminar</button>
       </div>
     </li>
   `}).join('');
@@ -285,12 +291,14 @@ function renderList(contacts) {
 function editContact(id, contacts) {
   const c = contacts.find(x => String(x.id) === String(id));
   if (!c) return;
-  form.id.value = c.id;
-  form.type.value = c.type || 'Potencial Cliente'; 
-  form.name.value = c.name || '';
-  form.company.value = c.company || '';
-  form.phone.value = c.phone || '';
-  form.email.value = c.email || '';
+  
+  document.querySelector('input[name="id"]').value = c.id;
+  formType.value = c.type || 'Potencial Cliente'; 
+  formName.value = c.name || '';
+  formCompany.value = c.company || '';
+  formPhone.value = c.phone || '';
+  formEmail.value = c.email || '';
+  
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
