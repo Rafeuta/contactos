@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_i0k_wtjMBVp6vFDRVtzAbw_kIbiKO-x';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================
-// ELEMENTOS DOM (Atualizados com os IDs corretos)
+// ELEMENTOS DOM
 // ============================================================
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
@@ -25,7 +25,6 @@ const contactList = document.getElementById('contactList');
 const rawTextContainer = document.getElementById('rawTextContainer');
 const rawTextOutput = document.getElementById('rawTextOutput');
 
-// Novos IDs dos campos do formulário
 const formType = document.getElementById('contactType');
 const formName = document.getElementById('contactName');
 const formCompany = document.getElementById('contactCompany');
@@ -52,7 +51,7 @@ startBtn.addEventListener('click', async () => {
     preview.classList.remove('active');
     rawTextContainer.style.display = 'none';
   } catch (err) {
-    alert('Não foi possível ativar a câmara: ' + err.message + '\n\nCertifica-te que estás em HTTPS.');
+    alert('Não foi possível ativar a câmara: ' + err.message);
   }
 });
 
@@ -68,7 +67,7 @@ stopBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-// PROCESSAMENTO DA IMAGEM (OCR)
+// PROCESSAMENTO DA IMAGEM E OCR
 // ============================================================
 async function processImage(dataUrl) {
   preview.src = dataUrl;
@@ -84,43 +83,60 @@ async function processImage(dataUrl) {
   captureBtn.style.display = 'none';
   stopBtn.style.display = 'none';
 
-  ocrStatus.textContent = '⏳ A processar imagem e a reconhecer texto...';
+  ocrStatus.textContent = '⏳ A preparar imagem...';
 
   try {
-    // 1. PRÉ-PROCESSAMENTO DA IMAGEM (Filtro Preto e Branco)
     const img = new Image();
     img.src = dataUrl;
     await new Promise((resolve) => { img.onload = resolve; });
 
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = img.width;
-    tempCanvas.height = img.height;
+    
+    // 1. CORTAR A IMAGEM AO CENTRO (Ignorar dedos e fundos)
+    const cropX = img.width * 0.1; // Corta 10% de cada lado
+    const cropY = img.height * 0.15; // Corta 15% de cima e baixo
+    const newWidth = img.width - (cropX * 2);
+    const newHeight = img.height - (cropY * 2);
+    
+    tempCanvas.width = newWidth;
+    tempCanvas.height = newHeight;
+    
     const ctx = tempCanvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, cropX, cropY, newWidth, newHeight, 0, 0, newWidth, newHeight);
 
+    // 2. FILTRO PRETO E BRANCO RIGOROSO
     const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
     const data = imageData.data;
 
-    // Passar por cada píxel e transformar em preto ou branco puro
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
       
+      // Cálculo de luminosidade
       const brightness = (r + g + b) / 3;
-      const color = brightness < 140 ? 0 : 255;
       
-      data[i] = color;
-      data[i + 1] = color;
-      data[i + 2] = color;
+      // O limite 150 garante que apenas o texto muito escuro fica preto
+      const color = brightness < 150 ? 0 : 255;
+      
+      data[i] = color;     
+      data[i + 1] = color; 
+      data[i + 2] = color; 
     }
     ctx.putImageData(imageData, 0, 0);
 
     const processedDataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
 
-    // 2. TESSERACT
+    ocrStatus.textContent = '⏳ A ler o cartão...';
+
+    // 3. TESSERACT
     const worker = await Tesseract.createWorker('por+eng');
-    await worker.setParameters({ tessedit_pageseg_mode: '4' });
+    await worker.setParameters({ 
+      // PSM 6 foca num bloco único de texto
+      tessedit_pageseg_mode: '6', 
+      // Limita os caracteres lidos (impede lixo e símbolos estranhos)
+      tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@.:+- ' 
+    });
 
     const { data: { text } } = await worker.recognize(processedDataUrl);
     await worker.terminate();
@@ -128,13 +144,13 @@ async function processImage(dataUrl) {
     rawTextOutput.value = text;
     rawTextContainer.style.display = 'block';
 
-    // 3. EXTRAÇÃO
+    // 4. EXTRAÇÃO DOS DADOS
     const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
     let foundEmail = cleanText.match(emailRegex)?.[0] || '';
     
-    const phoneRegex = /(\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{3,4}/g;
+    const phoneRegex = /(\+?\d{1,3}[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{3,4}/g;
     let foundPhone = cleanText.match(phoneRegex)?.[0] || '';
 
     let foundName = '';
@@ -146,7 +162,6 @@ async function processImage(dataUrl) {
     const companyMatch = cleanText.match(/(?:company|empresa|title|ceo)["'\s:]+([A-Z][a-zA-Z\s]+)/i);
     if (companyMatch && companyMatch[1]) foundCompany = companyMatch[1].trim();
 
-    // Preenche os campos usando os novos IDs
     if (foundName) formName.value = foundName;
     if (foundCompany) formCompany.value = foundCompany;
     if (foundPhone) formPhone.value = foundPhone.trim();
@@ -160,11 +175,10 @@ async function processImage(dataUrl) {
 
   } catch (err) {
     console.error(err);
-    ocrStatus.textContent = '⚠️ Ocorreu um erro no reconhecimento. Preenche manualmente.';
+    ocrStatus.textContent = '⚠️ Ocorreu um erro no reconhecimento.';
   }
 }
 
-// Evento: Tirar foto com a câmara
 captureBtn.addEventListener('click', () => {
   if (!video.videoWidth) return;
   canvas.width = video.videoWidth;
@@ -174,7 +188,6 @@ captureBtn.addEventListener('click', () => {
   processImage(dataUrl);
 });
 
-// Evento: Carregar imagem da galeria
 uploadInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -188,12 +201,10 @@ uploadInput.addEventListener('change', (e) => {
 });
 
 // ============================================================
-// CRUD CONTACTOS (Supabase)
+// CRUD CONTACTOS
 // ============================================================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
-  // Recolhe os dados usando os novos IDs
   const contact = {
     type: formType.value || 'Potencial Cliente',
     name: formName.value.trim(),
@@ -201,7 +212,6 @@ form.addEventListener('submit', async (e) => {
     phone: formPhone.value.trim(),
     email: formEmail.value.trim()
   };
-  
   const id = document.querySelector('input[name="id"]').value;
 
   try {
